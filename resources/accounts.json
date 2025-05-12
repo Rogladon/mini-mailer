@@ -1,0 +1,18 @@
+[
+  {
+    "label": "Тестовый Rogladon",
+    "user": "Rogladon@yandex.ru",
+    "pass": "giqacrqvquytfrnm",
+    "host": "smtp.yandex.ru",
+    "port": 465,
+    "secure": true
+  },
+  {
+    "label": "Пустой",
+    "user": "marketing@yandex.ru",
+    "pass": "app-pass-2",
+    "host": "smtp.yandex.ru",
+    "port": 465,
+    "secure": true
+  }
+]
