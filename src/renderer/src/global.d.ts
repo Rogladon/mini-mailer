@@ -8,8 +8,17 @@ export interface Account {
   port: number,
   secure: boolean
 };
-export interface Recipient { name: string; email: string; rowNumber: number; }
-export interface SendResult extends Recipient { status: 'OK' | 'FAIL' | 'VALID'; error?: string; }
+export interface Recipient {
+  name: string;
+  email: string;
+  rowNumber: number;
+  contacts: string;
+}
+export interface SendResult extends Recipient {
+  status: 'OK' | 'FAIL' | 'VALID';
+  error?: string;
+  date?: Date
+}
 
 interface ElectronAPI {
   startMailing(payload: { /* … */ }): Promise<{ file: string }>;

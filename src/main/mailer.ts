@@ -1,9 +1,8 @@
-import { app, ipcMain, BrowserWindow } from 'electron';
+import {  ipcMain, BrowserWindow } from 'electron';
 import nodemailer from 'nodemailer';
-import * as XLSX from 'xlsx';
-import path from 'node:path';
-import { Account } from '../renderer/src/global';
+import { Account, Recipient, SendResult } from '../renderer/src/global';
 import { extractEmail } from '../utils/email';
+import { generateReport } from '../utils/reports';
 
 // простой рендер {{var}}
 const tpl = (s: string, vars: Record<string, string>) =>
@@ -33,7 +32,7 @@ export function initMailer() {
         pauseMax,
       }: {
         smtp: Account;
-        recipients: { name: string; email: string }[];
+        recipients: Recipient[];
         subjectTemplate: string;
         htmlTemplate: string;
         pauseMin: number;
@@ -48,12 +47,7 @@ export function initMailer() {
         auth: { user: smtp.user, pass: smtp.pass },
       });
 
-      const report: {
-        email: string;
-        name: string;
-        status: 'OK' | 'FAIL';
-        error?: string;
-      }[] = [];
+      const report: SendResult[] = [];
 
       for (const r of recipients) {
         const vars = { name: r.name };
@@ -67,7 +61,7 @@ export function initMailer() {
             html: tpl(htmlTemplate, vars),
           });
           win.webContents.send('mail-progress', { ...r, status: 'OK' });
-          report.push({ ...r, status: 'OK' });
+          report.push({ ...r, status: 'OK', date: new Date() });
         }  catch (err: any) {
           if(err instanceof InvalidEmailError) pause = false;
           win.webContents.send('mail-progress', {
@@ -75,19 +69,17 @@ export function initMailer() {
             status: 'FAIL',
             error: err.message,
           });
-          report.push({ ...r, status: 'FAIL', error: err.message });
+          report.push({ ...r, status: 'FAIL', error: err.message, date: new Date() });
         }
         if (pause)
           await new Promise((res) => setTimeout(res, rand(pauseMin, pauseMax)));
       }
 
       // отчёт
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(report), 'Report');
-      const file = path.join(app.getPath('desktop'), 'report.xlsx');
-      XLSX.writeFile(wb, file);
+      const file = generateReport(report);
 
       return { file };
     },
   );
 }
+

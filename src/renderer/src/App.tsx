@@ -50,7 +50,6 @@ export default function App() {
   const [ emailCol, setEmailCol ] = useState<string>('');
 
   const [ recipients, setRecipients ] = useState<Recipient[]>([]);
-  const [ previewResult, setPreviewResult ] = useState<SendResult[]>([]); // ошибки «не найден email»
   const [ results, setResults ] = useState<SendResult[]>([]);
 
   const [ sending, setSending ] = useState(false);
@@ -94,25 +93,24 @@ export default function App() {
       data: any[],
       nameColumn: string,
       emailColumn: string,
-    ): { recipients: Recipient[]; errors: SendResult[] } => {
-      const valid: Recipient[] = [];
-      const errs: SendResult[] = [];
+    ): SendResult[] => {
+      const valid: SendResult[] = [];
 
       data.forEach((row) => {
         const nameVal = (row[ nameColumn ] ?? '').toString().trim();
         const emailRaw = row[ emailColumn ];
         const rowNumber = row[ '__rowNumber' ];
         const email = extractEmail(emailRaw);
-        valid.push({ name: nameVal, email: email ?? "", rowNumber });
-        errs.push({
-          rowNumber: rowNumber,
+        valid.push({
           name: nameVal,
           email: email ?? "",
+          rowNumber,
+          contacts: emailRaw,
           status: email ? 'VALID' : 'FAIL',
-          error: email ? undefined : 'Не найден email',
+          error: email ? undefined : 'Email не найден'
         });
       });
-      return { recipients: valid, errors: errs };
+      return valid;
     }, []
   );
 
@@ -139,14 +137,13 @@ export default function App() {
         setEmailCol(guessedEmail);
         setNameCol(guessedName);
 
-        const { recipients: valid, errors } = buildRecipients(
+        const recipients = buildRecipients(
           rowsArray,
           guessedName,
           guessedEmail,
         );
-        setRecipients(valid);
-        setPreviewResult(errors);
-        setResults(errors); // отображаем статические ошибки сразу
+        setRecipients(recipients);
+        setResults(recipients);
       };
       reader.readAsArrayBuffer(file);
     },
@@ -156,10 +153,9 @@ export default function App() {
   /* ------------ rebuild recipients when mapping changes ------------- */
   useEffect(() => {
     if (!rows.length || !nameCol || !emailCol) return;
-    const { recipients: valid, errors } = buildRecipients(rows, nameCol, emailCol);
-    setRecipients(valid);
-    setPreviewResult(errors);
-    setResults(errors);
+    const recipients = buildRecipients(rows, nameCol, emailCol);
+    setRecipients(recipients);
+    setResults(recipients);
   }, [ rows, nameCol, emailCol, buildRecipients ]);
 
   const onAccount = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -232,7 +228,7 @@ export default function App() {
               столбец с любыми контактами.
             </Alert>
             <Box fontSize="sm" color="gray.600">
-              Найдено адресов: {recipients.length} | Ошибок: {previewResult.filter(p => p.error).length}
+              Найдено адресов: {recipients.length} | Ошибок: {results.filter(p => p.error).length}
             </Box>
           </>
         )}
@@ -327,7 +323,7 @@ export default function App() {
   );
 }
 
-const getColor = (status: SendResult['status']) => {
+const getColor = (status: SendResult[ 'status' ]) => {
   switch (status) {
     case 'OK':
       return 'green.600';

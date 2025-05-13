@@ -30,10 +30,12 @@
     "@mui/x-data-grid": "^8.2.0",
     "dotenv": "^16.5.0",
     "electron-updater": "^6.3.9",
+    "exceljs": "^4.4.0",
     "framer-motion": "^12.10.3",
     "mui": "^0.0.1",
     "nodemailer": "^7.0.3",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "xlsx-style": "^0.8.13"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-prettier": "^3.0.0",
