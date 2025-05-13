@@ -20,9 +20,15 @@ export interface SendResult extends Recipient {
   date?: Date
 }
 
+export interface FilePath {
+  name?: string
+  path: string
+}
+
 interface ElectronAPI {
   startMailing(payload: { /* … */ }): Promise<{ file: string }>;
   onMailProgress(cb: (r: SendResult) => void): () => void;
-  getAccounts(): Promise<Account[]>;                // NEW
+  getAccounts(): Promise<Account[]>;
+  selectFiles(): Promise<{ filePaths: string[] }>;
 }
 declare global { interface Window { electronAPI: ElectronAPI; } }

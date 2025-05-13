@@ -22,8 +22,9 @@ import {
 } from '@chakra-ui/react';
 import * as XLSX from 'xlsx';
 import { Recipient, SendResult } from './global';
-import type { Account, ElectronAPI } from './global';
-import { extractEmail } from '../../utils/email';
+import type { Account, ElectronAPI, FilePath } from './global';
+import { extractEmail, renderTemplate } from '../../utils/email';
+import Preview from './components/Preview';
 
 /* --------------------------------- helpers -------------------------------- */
 
@@ -55,6 +56,10 @@ export default function App() {
   const [ sending, setSending ] = useState(false);
   const [ smtp, setSmtp ] = useState<Account>();
   const [ pause, setPause ] = useState({ min: 2000, max: 4000 });
+  const [ attachments, setAttachments ] = useState<FilePath[]>([]);
+  const [ isPreviewOpen, setIsPreviewOpen ] = useState(false);
+  const [ previewTemplate, setTemplatePreview ] = useState<string>('')
+
   const toast = useToast();
 
   const total = recipients.length;
@@ -173,6 +178,9 @@ export default function App() {
     setSending(true);
     setResults([]); // не очищаем статические ошибки
     try {
+
+      console.log(attachments)
+
       const { file } = await api!.startMailing({
         smtp,
         recipients,
@@ -180,16 +188,38 @@ export default function App() {
         htmlTemplate: htmlTpl,
         pauseMin: pause.min,
         pauseMax: pause.max,
+        attachments,
       });
       toast({ status: 'success', title: `Готово, отчёт: ${file}` });
+    } catch (errr) {
+      console.error(errr);
+      toast({ status: 'error', title: `Ошибка: ${errr}` });
     } finally {
       setSending(false);
     }
   };
 
+  const handleFileSelect = async () => {
+    const { filePaths } = await window.electronAPI.selectFiles();
+    const files = filePaths.map((path) => ({
+      name: path.split('/').pop(),
+      path,
+    }));
+    setAttachments(files);
+  };
+
+  const handlePreview = () => {
+    const vars = { name: recipients[ 0 ].name };
+    const renderedHtml = renderTemplate(htmlTpl, vars);
+    setTemplatePreview(renderedHtml)
+    setIsPreviewOpen(true);
+  };
+
   /* -------------------------------- render ------------------------------- */
   return (
     <Flex p={4} gap={6} wrap="wrap">
+      <Preview isOpen={isPreviewOpen} onClose={() => setIsPreviewOpen(false)}
+        previewContent={previewTemplate} />
       {/* ---------------------- left: settings ---------------------- */}
       <VStack w="340px" align="stretch" spacing={4}>
         <Heading size="md">Файл адресов</Heading>
@@ -266,6 +296,19 @@ export default function App() {
         )}
 
         <Heading size="md" pt={4}>
+          Вложения
+        </Heading>
+        <Button onClick={handleFileSelect} colorScheme="teal">
+          Выбрать файлы
+        </Button>
+
+        <Box fontSize="sm" color="gray.500">
+          {attachments.map((file) => (
+            <div key={file.path}>{file.name}</div>
+          ))}
+        </Box>
+
+        <Heading size="md" pt={4}>
           Пауза (мс)
         </Heading>
         <Flex gap={2}>
@@ -284,6 +327,10 @@ export default function App() {
             <NumberInputField />
           </NumberInput>
         </Flex>
+
+        <Button colorScheme="blue" onClick={handlePreview}>
+          Предпросмотр
+        </Button>
 
         <Button colorScheme="teal" isLoading={sending} isDisabled={!rows.length} onClick={start}>
           Отправить

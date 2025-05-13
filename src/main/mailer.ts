@@ -1,8 +1,9 @@
-import {  ipcMain, BrowserWindow } from 'electron';
+import { ipcMain, BrowserWindow } from 'electron';
 import nodemailer from 'nodemailer';
-import { Account, Recipient, SendResult } from '../renderer/src/global';
+import { Account, FilePath, Recipient, SendResult } from '../renderer/src/global';
 import { extractEmail } from '../utils/email';
 import { generateReport } from '../utils/reports';
+import mime from 'mime-types';
 
 // простой рендер {{var}}
 const tpl = (s: string, vars: Record<string, string>) =>
@@ -30,6 +31,7 @@ export function initMailer() {
         htmlTemplate,
         pauseMin,
         pauseMax,
+        attachments
       }: {
         smtp: Account;
         recipients: Recipient[];
@@ -37,6 +39,7 @@ export function initMailer() {
         htmlTemplate: string;
         pauseMin: number;
         pauseMax: number;
+        attachments: FilePath[]
       },
     ) => {
       const win = BrowserWindow.fromWebContents(e.sender)!;
@@ -49,6 +52,12 @@ export function initMailer() {
 
       const report: SendResult[] = [];
 
+      const formattedAttachments = attachments.map((file) => ({
+        filename: file.name,
+        path: file.path,
+        contentType: mime.lookup(file.name) || 'application/octet-stream',
+      }))
+
       for (const r of recipients) {
         const vars = { name: r.name };
         let pause = true;
@@ -59,11 +68,12 @@ export function initMailer() {
             to: r.email,
             subject: tpl(subjectTemplate, vars),
             html: tpl(htmlTemplate, vars),
+            attachments: formattedAttachments
           });
           win.webContents.send('mail-progress', { ...r, status: 'OK' });
           report.push({ ...r, status: 'OK', date: new Date() });
-        }  catch (err: any) {
-          if(err instanceof InvalidEmailError) pause = false;
+        } catch (err: any) {
+          if (err instanceof InvalidEmailError) pause = false;
           win.webContents.send('mail-progress', {
             ...r,
             status: 'FAIL',
@@ -76,7 +86,7 @@ export function initMailer() {
       }
 
       // отчёт
-      const file = generateReport(report);
+      const file = await generateReport(report);
 
       return { file };
     },

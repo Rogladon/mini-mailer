@@ -20,6 +20,8 @@ const api = {
   },
 
   getAccounts: (): Promise<Account[]> => ipcRenderer.invoke('get-accounts'),
+
+  selectFiles: () => ipcRenderer.invoke('dialog:openFile'),
 };
 
 // Use `contextBridge` APIs to expose Electron APIs to

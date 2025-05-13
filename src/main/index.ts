@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import 'dotenv/config';
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -54,7 +54,17 @@ app.whenReady().then(() => {
 
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
+  ipcMain.handle('dialog:openFile', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      properties: [ 'openFile', 'multiSelections' ]
+    });
 
+    if (canceled) {
+      return { filePaths: [] };
+    } else {
+      return { filePaths };
+    }
+  });
   createWindow()
   initMailer()
   registerAccountsLoader()

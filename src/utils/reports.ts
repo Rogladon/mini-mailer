@@ -1,67 +1,6 @@
-import path from "path";
-import { SendResult } from "../renderer/src/global";
-import * as XLSX from 'xlsx';
-import { app } from "electron";
-
-
-export function generateReport(report: SendResult[]) {
-  const wb = XLSX.utils.book_new();
-
-  // Маппинг данных в нужный формат
-  const mappedReport = report.map((r) => ({
-    'Организация': r.name,
-    'Дата отправки': r.date ? formatDate(new Date(r.date)) : '',
-    'Email': r.email,
-    'Контакты': r.contacts,
-    'Статус': parseStatus(r.status, r.error),
-  }));
-
-  // Создание листа
-  const ws = XLSX.utils.json_to_sheet(mappedReport);
-
-  // Настройка ширины и автопереноса текста
-  ws[ '!cols' ] = [
-    { wch: 30 },  // Организация — Ширина 30, перенос
-    { wch: 15 },  // Дата отправки — Автоподбор
-    { wch: 25 },  // Email — Автоподбор
-    { wch: 30 },  // Контакты — Ширина 30, перенос
-    { wch: 15 }   // Статус — Ширина 15, перенос
-  ];
-
-  // Автоперенос текста в ячейках
-  Object.keys(ws).forEach((cell) => {
-    if (cell[ 0 ] !== '!') {
-      ws[ cell ].s = {
-        alignment: {
-          wrapText: true,  // Это включит перенос текста
-          vertical: 'center',
-          horizontal: 'left',
-        }
-      };
-    }
-  });
-
-  // Цветовое выделение строк
-  mappedReport.forEach((row, index) => {
-    const excelRow = index + 2; // +2 потому что индекс в массиве и заголовок
-    const status = row[ 'Статус' ];
-    const range = `A${excelRow}:E${excelRow}`;
-    if (status.includes('Ошибка')) {
-      ws[ range ] = { s: { fill: { fgColor: { rgb: "FFCCCC" } } } }; // Красный
-    } else if (status === 'Отправлено') {
-      ws[ range ] = { s: { fill: { fgColor: { rgb: "CCFFCC" } } } }; // Зеленый
-    }
-  });
-
-  // Добавление листа в книгу
-  XLSX.utils.book_append_sheet(wb, ws, 'Отчет');
-
-  // Сохранение файла
-  const file = path.join(app.getPath('desktop'), `отчет_рассылки_${formatDateForFileName()}.xlsx`);
-  XLSX.writeFile(wb, file);
-
-  return file;
-}
+import ExcelJS from 'exceljs';
+import path from 'node:path';
+import { app } from 'electron';
 
 const parseStatus = (status: string, error?: string) => {
   switch (status) {
@@ -76,17 +15,6 @@ const parseStatus = (status: string, error?: string) => {
   }
 };
 
-
-const formatDate = (date: Date): string => {
-  return date.toLocaleString('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    year: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
 const formatDateForFileName = () => {
   const now = new Date();
   const year = now.getFullYear();
@@ -94,8 +22,108 @@ const formatDateForFileName = () => {
   const day = String(now.getDate()).padStart(2, '0');
   const hours = String(now.getHours()).padStart(2, '0');
   const minutes = String(now.getMinutes()).padStart(2, '0');
-  const seconds = String(now.getSeconds()).padStart(2, '0');
-
-  // Итоговая строка без символов разделения
-  return `${year}-${month}-${day}_${hours}-${minutes}`;
+  return `${year}${month}${day}_${hours}${minutes}`;
 };
+
+export async function generateReport(report: any[]) {
+  // Создаем новую книгу и лист
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('Отчет');
+
+  // Задаем ширину колонок
+  sheet.columns = [
+    { header: 'Организация', key: 'organization', width: 30 },
+    { header: 'Дата отправки', key: 'date', width: 20 },
+    { header: 'Email', key: 'email', width: 25 },
+    { header: 'Контакты', key: 'contacts', width: 30 },
+    { header: 'Статус', key: 'status', width: 35 },
+  ];
+
+  // Добавляем стили к заголовкам
+  const headerRow = sheet.getRow(1);
+  headerRow.font = { bold: true };
+  headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+  headerRow.border = {
+    top: { style: 'thin' },
+    left: { style: 'thin' },
+    bottom: { style: 'thin' },
+    right: { style: 'thin' },
+  };
+  headerRow.height = 25;
+
+  const calculateRowHeight = (text: string, columnWidth: number) => {
+    const maxWidth = columnWidth; // умножаем на 1.2 для учета ширины символов
+    const lines = text.split('\n');
+    let lineCount = 0;
+
+    lines.forEach((line) => {
+      lineCount += Math.ceil(line.length / maxWidth);
+    });
+
+    return Math.max(lineCount, 1) * 20; // 20px на каждую строку
+  };
+
+  // Заполняем данные
+  report.forEach((r) => {
+    const row = sheet.addRow({
+      organization: r.name,
+      date: r.date ? new Date(r.date).toLocaleString('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        year: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      }) : '',
+      email: r.email,
+      contacts: r.contacts,
+      status: parseStatus(r.status, r.error),
+    });
+
+    // Автоперенос текста
+    row.alignment = { wrapText: true, vertical: 'middle' };
+
+    // 🟢 **Границы для всех ячеек в строке**
+    row.eachCell((cell) => {
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' },
+      };
+    });
+
+    // 🟢 **Цветовое выделение**
+    if (r.status === 'FAIL') {
+      row.eachCell((cell) => {
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFFFCCCC' }, // Красный фон
+        };
+      });
+    } else if (r.status === 'OK') {
+      row.eachCell((cell) => {
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFCCFFCC' }, // Зеленый фон
+        };
+      });
+    }
+
+    const orgHeight = calculateRowHeight(r.name, 30); // Ширина 'Организация'
+    const contactHeight = calculateRowHeight(r.contacts, 30); // Ширина 'Контакты'
+
+    // Берем максимальное значение из двух, чтобы строка не обрезалась
+    row.height = Math.max(orgHeight, contactHeight, 20);
+  });
+
+  // Сохранение файла
+  const timestamp = formatDateForFileName();
+  const file = path.join(app.getPath('desktop'), `отчет_рассылки_${timestamp}.xlsx`);
+
+  // Ждем, пока запишется файл
+  await workbook.xlsx.writeFile(file);
+
+  return file;
+}

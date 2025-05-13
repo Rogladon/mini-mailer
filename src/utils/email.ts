@@ -5,3 +5,6 @@ export function extractEmail(raw: unknown): string | null {
   const m = raw.match(EMAIL_RE);
   return m?.[ 0 ]?.trim() ?? null;
 }
+
+export const renderTemplate = (s: string, vars: Record<string, string>) =>
+  s.replace(/\{\{(\w+)\}\}/g, (_, k) => vars[ k ] ?? '');

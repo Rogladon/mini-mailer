@@ -1,5 +1,5 @@
 appId: com.electron.app
-productName: electron-app
+productName: Mini Mailer
 directories:
   buildResources: build
 files:
@@ -12,7 +12,7 @@ files:
 asarUnpack:
   - resources/**
 win:
-  executableName: electron-app
+  executableName: Mini Mailer
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
