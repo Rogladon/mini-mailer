@@ -171,7 +171,7 @@ export default function App() {
   };
 
   const start = async () => {
-    if (!smtp || !smtp.user || !smtp.pass || !smtp.host || !smtp.port || !smtp.secure || !recipients.length) {
+    if (!smtp || !smtp.user || !smtp.pass || !smtp.host || !smtp.port || !recipients.length) {
       toast({ status: 'warning', title: 'Укажите учётку и загрузите адреса' });
       return;
     }
