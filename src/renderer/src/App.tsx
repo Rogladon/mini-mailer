@@ -113,14 +113,16 @@ export default function App() {
         const emailRaw = row[ emailColumn ];
         const rowNumber = row[ '__rowNumber' ];
         const email = extractEmail(emailRaw);
-        valid.push({
+        const rec : SendResult = {
           name: nameVal,
           email: email ?? "",
           rowNumber,
           contacts: emailRaw,
           status: email ? 'VALID' : 'FAIL',
           error: email ? undefined : 'Email не найден'
-        });
+        };
+        if (valid.find(p => p.email == email)) rec.status = 'DUBLICATE'
+        valid.push(rec)
       });
       return valid;
     }, []

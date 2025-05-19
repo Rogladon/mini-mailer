@@ -18,6 +18,12 @@ class InvalidEmailError extends Error {
   }
 }
 
+class DublicateError extends Error {
+  constructor(res: SendResult) {
+    super(`${res.status}`);
+  }
+}
+
 // регистрация IPC-хэндлера
 export function initMailer() {
   ipcMain.handle(
@@ -42,7 +48,7 @@ export function initMailer() {
         pauseMin: number;
         pauseMax: number;
         attachments: FilePath[];
-          colsCopyNumbers: number[];
+        colsCopyNumbers: number[];
         rows: any[];
       },
     ) => {
@@ -66,6 +72,8 @@ export function initMailer() {
         let pause = true;
         try {
           if (!extractEmail(r.email)) throw new InvalidEmailError();
+          const dub = report.find(p => p.email == r.email);
+          if (dub) throw new DublicateError(dub);
           await transport.sendMail({
             from: smtp.user,
             to: r.email,
@@ -77,12 +85,15 @@ export function initMailer() {
           report.push({ ...r, status: 'OK', date: new Date() });
         } catch (err: any) {
           if (err instanceof InvalidEmailError) pause = false;
+          if (err instanceof DublicateError) pause = false;
+
           win.webContents.send('mail-progress', {
             ...r,
-            status: 'FAIL',
+            status: err instanceof DublicateError ? 'DUBLICATE' : 'FAIL',
             error: err.message,
           });
-          report.push({ ...r, status: 'FAIL', error: err.message, date: new Date() });
+          report.push({ ...r, status: err instanceof DublicateError ? 'DUBLICATE' : 'FAIL', error: err.message, date: new Date() });
+
         }
         if (pause)
           await new Promise((res) => setTimeout(res, rand(pauseMin, pauseMax)));

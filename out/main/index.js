@@ -19,9 +19,11 @@ const parseStatus = (status, error) => {
     case "OK":
       return "Отправлено";
     case "FAIL":
-      return `Ошибка: ${"Неизвестная ошибка"}`;
+      return `Ошибка: ${error ?? "Неизвестная ошибка"}`;
     case "VALID":
       return "Требуется проверка";
+    case "DUBLICATE":
+      return `Дублируется: ${parseStatus(error ?? "")}`;
     default:
       return "Неизвестный статус";
   }
@@ -84,7 +86,7 @@ async function generateReport(report, rows, copyNumbers) {
           minute: "2-digit"
         }) : "";
       } else if (index === -2) {
-        return parseStatus(r.status);
+        return parseStatus(r.status, r.error);
       }
     });
     const row = sheet.addRow(rowData);
@@ -2830,6 +2832,11 @@ class InvalidEmailError extends Error {
     super("Invalid email");
   }
 }
+class DublicateError extends Error {
+  constructor(res) {
+    super(`${res.status}`);
+  }
+}
 function initMailer() {
   electron.ipcMain.handle(
     "start-mailing",
@@ -2862,6 +2869,8 @@ function initMailer() {
         let pause = true;
         try {
           if (!extractEmail(r.email)) throw new InvalidEmailError();
+          const dub = report.find((p) => p.email == r.email);
+          if (dub) throw new DublicateError(dub);
           await transport.sendMail({
             from: smtp.user,
             to: r.email,
@@ -2873,12 +2882,13 @@ function initMailer() {
           report.push({ ...r, status: "OK", date: /* @__PURE__ */ new Date() });
         } catch (err) {
           if (err instanceof InvalidEmailError) pause = false;
+          if (err instanceof DublicateError) pause = false;
           win.webContents.send("mail-progress", {
             ...r,
-            status: "FAIL",
+            status: err instanceof DublicateError ? "DUBLICATE" : "FAIL",
             error: err.message
           });
-          report.push({ ...r, status: "FAIL", error: err.message, date: /* @__PURE__ */ new Date() });
+          report.push({ ...r, status: err instanceof DublicateError ? "DUBLICATE" : "FAIL", error: err.message, date: /* @__PURE__ */ new Date() });
         }
         if (pause)
           await new Promise((res) => setTimeout(res, rand(pauseMin, pauseMax)));

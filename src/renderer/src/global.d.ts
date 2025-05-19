@@ -15,7 +15,7 @@ export interface Recipient {
   contacts: string;
 }
 export interface SendResult extends Recipient {
-  status: 'OK' | 'FAIL' | 'VALID';
+  status: 'OK' | 'FAIL' | 'VALID' | 'DUBLICATE';
   error?: string;
   date?: Date
 }

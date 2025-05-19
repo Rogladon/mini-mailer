@@ -10,6 +10,8 @@ const parseStatus = (status: string, error?: string) => {
       return `Ошибка: ${error ?? 'Неизвестная ошибка'}`;
     case 'VALID':
       return 'Требуется проверка';
+    case 'DUBLICATE':
+      return `Дублируется: ${parseStatus(error ?? '')}`
     default:
       return 'Неизвестный статус';
   }
@@ -89,7 +91,7 @@ export async function generateReport(report: any[], rows: any[], copyNumbers: nu
           minute: '2-digit',
         }) : '';
       } else if (index === -2) {
-        return parseStatus(r.status);
+        return parseStatus(r.status, r.error);
       }
     });
 
