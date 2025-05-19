@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import type { Account, Recipient, SendResult } from '../renderer/src/global';
+import type { Account, FilePath, Recipient, SendResult } from '../renderer/src/global';
 
 // Custom APIs for renderer
 const api = {
@@ -11,6 +11,9 @@ const api = {
     htmlTemplate: string;
     pauseMin: number;
     pauseMax: number;
+    attachments: FilePath[];
+    colsCopyNumbers: number[];
+    rows: any[];
   }) => ipcRenderer.invoke('start-mailing', payload),
 
   onMailProgress: (cb: (r: SendResult) => void) => {

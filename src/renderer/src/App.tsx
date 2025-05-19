@@ -32,6 +32,11 @@ import Preview from './components/Preview';
 /* -------------------------------------------------------------------------- */
 const api = (window as any).electronAPI as ElectronAPI | undefined;
 
+const customCols = [
+  'Время отправки',
+  'Статус отправки'
+]
+
 export default function App() {
   /* ------------------------------ ui state ------------------------------ */
   const [ tplMode, setTplMode ] = useState<'inline' | 'file'>('inline');
@@ -48,6 +53,7 @@ export default function App() {
   const [ rows, setRows ] = useState<any[]>([]); // строки из xlsx
   const [ columns, setColumns ] = useState<string[]>([]);
   const [ nameCol, setNameCol ] = useState<string>('');
+  const [ colsCopyNumbers, setCopyColsNumbers ] = useState<number[]>([])
   const [ emailCol, setEmailCol ] = useState<string>('');
 
   const [ recipients, setRecipients ] = useState<Recipient[]>([]);
@@ -179,8 +185,7 @@ export default function App() {
     setResults([]); // не очищаем статические ошибки
     try {
 
-      console.log(attachments)
-
+      console.log(colsCopyNumbers)
       const { file } = await api!.startMailing({
         smtp,
         recipients,
@@ -189,6 +194,8 @@ export default function App() {
         pauseMin: pause.min,
         pauseMax: pause.max,
         attachments,
+        colsCopyNumbers,
+        rows
       });
       toast({ status: 'success', title: `Готово, отчёт: ${file}` });
     } catch (errr) {
@@ -214,6 +221,16 @@ export default function App() {
     setTemplatePreview(renderedHtml)
     setIsPreviewOpen(true);
   };
+
+  const handleSetCopyCol = (v: any) => {
+    const exelColumn = columns.findIndex(p => p === v);
+    const customColumn = customCols.findIndex(p => p === v)
+    setCopyColsNumbers(d => [ ...d, exelColumn !== -1 ? exelColumn : -(customColumn + 1) ])
+  }
+
+  const handleDeleteCopyCol = (index: number) => {
+    setCopyColsNumbers(d => d.filter((_, i) => i !== index))
+  }
 
   /* -------------------------------- render ------------------------------- */
   return (
@@ -260,6 +277,32 @@ export default function App() {
             <Box fontSize="sm" color="gray.600">
               Найдено адресов: {recipients.length} | Ошибок: {results.filter(p => p.error).length}
             </Box>
+          </>
+        )}
+
+        {columns.length > 0 && (
+          <>
+            <Heading size="sm" pt={2}>
+              Столбцы в отчет
+            </Heading>
+            <Table>
+              {colsCopyNumbers.map((p, i) => <Tr>
+                <Td>{columns[ p ] ?? customCols[-p-1]}</Td>
+                <Td><Button onClick={() => handleDeleteCopyCol(i)}>Delete</Button></Td>
+              </Tr>
+              )}
+            </Table>
+            <Select
+              value={''}
+              onChange={(e) => handleSetCopyCol(e.target.value)}
+              placeholder="Выберите столбец"
+            >
+              <option key={100}>Время отправки</option>
+              <option key={101}>Статус отправки</option>
+              {columns.map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </Select>
           </>
         )}
 

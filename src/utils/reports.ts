@@ -25,19 +25,27 @@ const formatDateForFileName = () => {
   return `${year}${month}${day}_${hours}${minutes}`;
 };
 
-export async function generateReport(report: any[]) {
+export async function generateReport(report: any[], rows: any[], copyNumbers: number[]) {
+
+  console.log(report, rows, copyNumbers)
   // Создаем новую книгу и лист
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Отчет');
 
+  const headers = copyNumbers.map((index) => {
+    if (index >= 0) {
+      const header = Object.keys(rows[ 0 ])[ index ];
+      return { header: header ?? `Колонка ${index + 1}`, key: `column_${index}`, width: 25 };
+    } else if (index === -1) {
+      return { header: 'Время отправки', key: 'sendTime', width: 20 };
+    } else if (index === -2) {
+      return { header: 'Статус отправки', key: 'sendStatus', width: 25 };
+    }
+    return ''
+  });
+
   // Задаем ширину колонок
-  sheet.columns = [
-    { header: 'Организация', key: 'organization', width: 30 },
-    { header: 'Дата отправки', key: 'date', width: 20 },
-    { header: 'Email', key: 'email', width: 25 },
-    { header: 'Контакты', key: 'contacts', width: 30 },
-    { header: 'Статус', key: 'status', width: 35 },
-  ];
+  sheet.columns = headers
 
   // Добавляем стили к заголовкам
   const headerRow = sheet.getRow(1);
@@ -63,21 +71,30 @@ export async function generateReport(report: any[]) {
     return Math.max(lineCount, 1) * 20; // 20px на каждую строку
   };
 
+
   // Заполняем данные
   report.forEach((r) => {
-    const row = sheet.addRow({
-      organization: r.name,
-      date: r.date ? new Date(r.date).toLocaleString('ru-RU', {
-        day: '2-digit',
-        month: '2-digit',
-        year: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      }) : '',
-      email: r.email,
-      contacts: r.contacts,
-      status: parseStatus(r.status, r.error),
+    const originalRow = rows.find((row) => row.__rowNumber === r.rowNumber);
+
+    // Массив данных для вставки в Excel
+    const rowData = copyNumbers.map((index) => {
+      if (index >= 0) {
+        return originalRow ? originalRow[ Object.keys(originalRow)[ index ] ] : '';
+      } else if (index === -1) {
+        return r.date ? new Date(r.date).toLocaleString('ru-RU', {
+          day: '2-digit',
+          month: '2-digit',
+          year: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+        }) : '';
+      } else if (index === -2) {
+        return parseStatus(r.status);
+      }
     });
+
+    // Добавляем строку в Excel
+    const row = sheet.addRow(rowData);
 
     // Автоперенос текста
     row.alignment = { wrapText: true, vertical: 'middle' };

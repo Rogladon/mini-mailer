@@ -1,18 +1,18 @@
 [
   {
-    "label": "Тестовый sdfsdfsd",
-    "user": "sdfsdfs@yandex.ru",
-    "pass": "asdsfsdfsdf",
+    "label": "Яндекс",
+    "user": "skillcity.gorodnavykov@yandex.ru",
+    "pass": "asdasd",
     "host": "smtp.yandex.ru",
     "port": 465,
     "secure": true
   },
   {
-    "label": "Пустой",
-    "user": "marketing@yandex.ru",
-    "pass": "app-pass-2",
-    "host": "smtp.yandex.ru",
-    "port": 465,
-    "secure": true
+    "label": "Google",
+    "user": "foroteh.team@gmail.com",
+    "pass": "lntm yndo ppvc rypk",
+    "host": "smtp.gmail.com",
+    "port": 587,
+    "secure": false
   }
 ]

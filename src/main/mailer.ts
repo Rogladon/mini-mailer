@@ -31,7 +31,9 @@ export function initMailer() {
         htmlTemplate,
         pauseMin,
         pauseMax,
-        attachments
+        attachments,
+        colsCopyNumbers,
+        rows
       }: {
         smtp: Account;
         recipients: Recipient[];
@@ -39,7 +41,9 @@ export function initMailer() {
         htmlTemplate: string;
         pauseMin: number;
         pauseMax: number;
-        attachments: FilePath[]
+        attachments: FilePath[];
+          colsCopyNumbers: number[];
+        rows: any[];
       },
     ) => {
       const win = BrowserWindow.fromWebContents(e.sender)!;
@@ -49,7 +53,7 @@ export function initMailer() {
         secure: smtp.secure,
         auth: { user: smtp.user, pass: smtp.pass },
       });
-
+      console.log('copynumbers', colsCopyNumbers)
       const report: SendResult[] = [];
 
       const formattedAttachments = attachments.map((file) => ({
@@ -86,7 +90,7 @@ export function initMailer() {
       }
 
       // отчёт
-      const file = await generateReport(report);
+      const file = await generateReport(report, rows, colsCopyNumbers);
 
       return { file };
     },
