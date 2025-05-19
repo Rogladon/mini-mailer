@@ -36,7 +36,6 @@ const formatDateForFileName = () => {
   return `${year}${month}${day}_${hours}${minutes}`;
 };
 async function generateReport(report, rows, copyNumbers) {
-  console.log(report, rows, copyNumbers);
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet("Отчет");
   const headers = copyNumbers.map((index) => {
@@ -60,8 +59,9 @@ async function generateReport(report, rows, copyNumbers) {
     bottom: { style: "thin" },
     right: { style: "thin" }
   };
-  headerRow.height = 25;
+  headerRow.height = 50;
   const calculateRowHeight = (text, columnWidth) => {
+    if (!text || typeof text !== "string" || false) return 20;
     const maxWidth = columnWidth;
     const lines = text.split("\n");
     let lineCount = 0;
@@ -2851,7 +2851,6 @@ function initMailer() {
         secure: smtp.secure,
         auth: { user: smtp.user, pass: smtp.pass }
       });
-      console.log("copynumbers", colsCopyNumbers);
       const report = [];
       const formattedAttachments = attachments.map((file2) => ({
         filename: file2.name,

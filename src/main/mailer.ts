@@ -53,7 +53,6 @@ export function initMailer() {
         secure: smtp.secure,
         auth: { user: smtp.user, pass: smtp.pass },
       });
-      console.log('copynumbers', colsCopyNumbers)
       const report: SendResult[] = [];
 
       const formattedAttachments = attachments.map((file) => ({

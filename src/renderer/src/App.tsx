@@ -42,7 +42,7 @@ export default function App() {
   const [ tplMode, setTplMode ] = useState<'inline' | 'file'>('inline');
   const [ tplFileName, setTplFile ] = useState('');
   const [ subjectTpl, setSubjectTpl ] = useState(
-    'Безвозмездное партнёрство: летняя программа «Город навыков» для школ и лагерей',
+    'Летняя программа «Город навыков» для школ и лагерей',
   );
   const [ htmlTpl, setHtmlTpl ] = useState('<p>Здравствуйте, {{name}}</p>');
 
@@ -108,6 +108,7 @@ export default function App() {
       const valid: SendResult[] = [];
 
       data.forEach((row) => {
+        if (row[ nameColumn ] == '' || row[ emailColumn ] == '') return;
         const nameVal = (row[ nameColumn ] ?? '').toString().trim();
         const emailRaw = row[ emailColumn ];
         const rowNumber = row[ '__rowNumber' ];
@@ -184,8 +185,6 @@ export default function App() {
     setSending(true);
     setResults([]); // не очищаем статические ошибки
     try {
-
-      console.log(colsCopyNumbers)
       const { file } = await api!.startMailing({
         smtp,
         recipients,
@@ -222,14 +221,29 @@ export default function App() {
     setIsPreviewOpen(true);
   };
 
-  const handleSetCopyCol = (v: any) => {
+  const handleSetCopyCol = (v: any, index?: number) => {
     const exelColumn = columns.findIndex(p => p === v);
     const customColumn = customCols.findIndex(p => p === v)
-    setCopyColsNumbers(d => [ ...d, exelColumn !== -1 ? exelColumn : -(customColumn + 1) ])
+    if (index)
+      setCopyColsNumbers((d) => {
+        const newData = [ ...d ];
+        newData[ index - 1 ] = exelColumn !== -1 ? exelColumn : -(customColumn + 1);
+        return newData;
+      });
+    else
+      setCopyColsNumbers(d => [ ...d, exelColumn !== -1 ? exelColumn : -(customColumn + 1) ])
   }
 
   const handleDeleteCopyCol = (index: number) => {
     setCopyColsNumbers(d => d.filter((_, i) => i !== index))
+  }
+
+  const handleAutoCopeCols = () => {
+    setCopyColsNumbers([
+      columns.findIndex(p => p == nameCol),
+      columns.findIndex(p => p == emailCol),
+      -2, -1
+    ])
   }
 
   /* -------------------------------- render ------------------------------- */
@@ -287,7 +301,19 @@ export default function App() {
             </Heading>
             <Table>
               {colsCopyNumbers.map((p, i) => <Tr>
-                <Td>{columns[ p ] ?? customCols[-p-1]}</Td>
+                <Td>
+                  <Select
+                    value={columns[ p ] ?? customCols[ -p - 1 ]}
+                    onChange={(e) => handleSetCopyCol(e.target.value, i + 1)}
+                    placeholder="Выберите столбец"
+                  >
+                    <option key={100}>Время отправки</option>
+                    <option key={101}>Статус отправки</option>
+                    {columns.map((c) => (
+                      <option key={c}>{c}</option>
+                    ))}
+                  </Select>
+                </Td>
                 <Td><Button onClick={() => handleDeleteCopyCol(i)}>Delete</Button></Td>
               </Tr>
               )}
@@ -303,6 +329,7 @@ export default function App() {
                 <option key={c}>{c}</option>
               ))}
             </Select>
+            <Button onClick={handleAutoCopeCols}>Авто</Button>
           </>
         )}
 

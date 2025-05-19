@@ -27,7 +27,6 @@ const formatDateForFileName = () => {
 
 export async function generateReport(report: any[], rows: any[], copyNumbers: number[]) {
 
-  console.log(report, rows, copyNumbers)
   // Создаем новую книгу и лист
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Отчет');
@@ -57,9 +56,10 @@ export async function generateReport(report: any[], rows: any[], copyNumbers: nu
     bottom: { style: 'thin' },
     right: { style: 'thin' },
   };
-  headerRow.height = 25;
+  headerRow.height = 50;
 
   const calculateRowHeight = (text: string, columnWidth: number) => {
+    if (!text || typeof text !== 'string' || !columnWidth) return 20;
     const maxWidth = columnWidth; // умножаем на 1.2 для учета ширины символов
     const lines = text.split('\n');
     let lineCount = 0;
