@@ -65,6 +65,7 @@ export default function App() {
   const [ attachments, setAttachments ] = useState<FilePath[]>([]);
   const [ isPreviewOpen, setIsPreviewOpen ] = useState(false);
   const [ previewTemplate, setTemplatePreview ] = useState<string>('')
+  const [ htmlVars, setHtmlVars ] = useState<{ name: string, columnName: string }[]>([]);
 
   const toast = useToast();
 
@@ -113,7 +114,7 @@ export default function App() {
         const emailRaw = row[ emailColumn ];
         const rowNumber = row[ '__rowNumber' ];
         const email = extractEmail(emailRaw);
-        const rec : SendResult = {
+        const rec: SendResult = {
           name: nameVal,
           email: email ?? "",
           rowNumber,
@@ -196,7 +197,8 @@ export default function App() {
         pauseMax: pause.max,
         attachments,
         colsCopyNumbers,
-        rows
+        rows,
+        vars: htmlVars
       });
       toast({ status: 'success', title: `Готово, отчёт: ${file}` });
     } catch (errr) {
@@ -216,8 +218,24 @@ export default function App() {
     setAttachments(files);
   };
 
+  const resetSentEmails = async () => {
+    if (sending || !window.confirm('Сбросить память отправленных адресов? После сброса этим адресам можно будет отправлять письма повторно.')) return;
+    try {
+      await api!.resetSentEmails();
+      toast({ status: 'success', title: 'Память отправленных адресов сброшена' });
+    } catch (error) {
+      toast({ status: 'error', title: `Не удалось сбросить память: ${error}` });
+    }
+  };
+
   const handlePreview = () => {
-    const vars = { name: recipients[ 0 ].name };
+    const vars = htmlVars.reduce((acc, v) => {
+      console.log(v.columnName, rows[0], rows[ 0 ][ v.columnName ])
+      // const row = rows.find(r => r
+      acc[ v.name ] = rows[ 0 ][ v.columnName ];
+      return acc;
+    }, {} as Record<string, string>);
+    console.log(vars)
     const renderedHtml = renderTemplate(htmlTpl, vars);
     setTemplatePreview(renderedHtml)
     setIsPreviewOpen(true);
@@ -246,6 +264,29 @@ export default function App() {
       columns.findIndex(p => p == emailCol),
       -2, -1
     ])
+  }
+
+  const handleVarChangeName = (v: any, index?: number) => {
+
+    if (index)
+      setHtmlVars((d) => {
+        const newData = [ ...d ];
+        newData[ index - 1 ].name = v;
+        return newData;
+      });
+  }
+
+  const handleVarChangeColumn = (v: any, index?: number) => {
+    if (index)
+      setHtmlVars((d) => {
+        const newData = [ ...d ];
+        newData[ index - 1 ].columnName = v;
+        return newData;
+      });
+  }
+
+  const handleAddVar = () => {
+    setHtmlVars(d => [ ...d, { name: '', columnName: '' } ])
   }
 
   /* -------------------------------- render ------------------------------- */
@@ -367,6 +408,32 @@ export default function App() {
           </>
         )}
 
+        <Heading size={'md'} pt={4}>
+          Переменные
+        </Heading>
+        <Box fontSize="sm" color="gray.500">
+          <Table>
+            {htmlVars.map((p, i) => <Tr>
+              <Td>
+                <Input value={p.name} onChange={(e) => handleVarChangeName(e.target.value, i + 1)} />
+              </Td>
+              <Td>
+                <Select
+                  value={p.columnName}
+                  onChange={(e) => handleVarChangeColumn(e.target.value, i + 1)}
+                  placeholder="Выберите столбец"
+                >
+                  {columns.map((c) => (
+                    <option key={c}>{c}</option>
+                  ))}
+                </Select>
+              </Td>
+            </Tr>
+            )}
+          </Table>
+          <Button onClick={handleAddVar}>Добавить</Button>
+        </Box>
+
         <Heading size="md" pt={4}>
           Вложения
         </Heading>
@@ -406,6 +473,9 @@ export default function App() {
 
         <Button colorScheme="teal" isLoading={sending} isDisabled={!rows.length} onClick={start}>
           Отправить
+        </Button>
+        <Button colorScheme="orange" variant="outline" isDisabled={sending} onClick={resetSentEmails}>
+          Сбросить память отправленных адресов
         </Button>
         {sending && <Progress value={(done / total) * 100} size="sm" />}
       </VStack>
@@ -450,5 +520,7 @@ const getColor = (status: SendResult[ 'status' ]) => {
       return 'red.600';
     case 'VALID':
       return 'green.600';
+    case 'DUBLICATE':
+      return 'yellow:600';
   }
 };

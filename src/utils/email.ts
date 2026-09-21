@@ -1,9 +1,9 @@
-const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
+const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
 
 export function extractEmail(raw: unknown): string | null {
   if (typeof raw !== 'string') return null;
   const m = raw.match(EMAIL_RE);
-  return m?.[ 0 ]?.trim() ?? null;
+  return m?.[ 0 ]?.trim().toLowerCase() ?? null;
 }
 
 export const renderTemplate = (s: string, vars: Record<string, string>) =>

@@ -10,7 +10,15 @@
   {
     "label": "Google",
     "user": "foroteh.team@gmail.com",
-    "pass": "asdasdas",
+    "pass": "lntm yndo ppvc rypk",
+    "host": "smtp.gmail.com",
+    "port": 587,
+    "secure": false
+  },
+  {
+    "label": "My google",
+    "user": "bakharevski2@gmail.com",
+    "pass": "lafk oxav vpzm icvr",
     "host": "smtp.gmail.com",
     "port": 587,
     "secure": false

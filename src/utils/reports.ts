@@ -3,6 +3,8 @@ import path from 'node:path';
 import { app } from 'electron';
 
 const parseStatus = (status: string, error?: string) => {
+  if (status === 'DUBLICATE' && error) return error;
+
   switch (status) {
     case 'OK':
       return 'Отправлено';

@@ -29,6 +29,7 @@ interface ElectronAPI {
   startMailing(payload: { /* … */ }): Promise<{ file: string }>;
   onMailProgress(cb: (r: SendResult) => void): () => void;
   getAccounts(): Promise<Account[]>;
+  resetSentEmails(): Promise<void>;
   selectFiles(): Promise<{ filePaths: string[] }>;
 }
 declare global { interface Window { electronAPI: ElectronAPI; } }

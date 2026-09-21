@@ -7,14 +7,15 @@ const nodemailer = require("nodemailer");
 const ExcelJS = require("exceljs");
 const path = require("node:path");
 const fs = require("node:fs/promises");
-const icon = require$$1.join(__dirname, "./chunks/icon-BE0e6We9.png");
-const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
+const icon = require$$1.join(__dirname, "../../resources/icon.png");
+const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
 function extractEmail(raw) {
   if (typeof raw !== "string") return null;
   const m = raw.match(EMAIL_RE);
-  return m?.[0]?.trim() ?? null;
+  return m?.[0]?.trim().toLowerCase() ?? null;
 }
 const parseStatus = (status, error) => {
+  if (status === "DUBLICATE" && error) return error;
   switch (status) {
     case "OK":
       return "Отправлено";
@@ -2825,6 +2826,22 @@ function requireMimeTypes() {
 }
 var mimeTypesExports = requireMimeTypes();
 const mime = /* @__PURE__ */ getDefaultExportFromCjs(mimeTypesExports);
+const sentEmailsPath = path.join(electron.app.getPath("userData"), "sent-emails.json");
+let mailingInProgress = false;
+async function readSentEmails() {
+  try {
+    const data = JSON.parse(await fs.readFile(sentEmailsPath, "utf-8"));
+    return Array.isArray(data) ? new Set(data.filter((value) => typeof value === "string")) : /* @__PURE__ */ new Set();
+  } catch {
+    return /* @__PURE__ */ new Set();
+  }
+}
+async function saveSentEmails(sentEmails) {
+  await fs.mkdir(path.dirname(sentEmailsPath), { recursive: true });
+  const tempPath = `${sentEmailsPath}.tmp`;
+  await fs.writeFile(tempPath, JSON.stringify([...sentEmails], null, 2), "utf-8");
+  await fs.rename(tempPath, sentEmailsPath);
+}
 const tpl = (s, vars) => s.replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k] ?? "");
 const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 class InvalidEmailError extends Error {
@@ -2832,12 +2849,16 @@ class InvalidEmailError extends Error {
     super("Invalid email");
   }
 }
-class DublicateError extends Error {
-  constructor(res) {
-    super(`${res.status}`);
+class DuplicateEmailError extends Error {
+  constructor(message) {
+    super(message);
   }
 }
 function initMailer() {
+  electron.ipcMain.handle("reset-sent-emails", async () => {
+    if (mailingInProgress) throw new Error("Нельзя сбросить память во время рассылки");
+    await saveSentEmails(/* @__PURE__ */ new Set());
+  });
   electron.ipcMain.handle(
     "start-mailing",
     async (e, {
@@ -2849,52 +2870,80 @@ function initMailer() {
       pauseMax,
       attachments,
       colsCopyNumbers,
-      rows
+      rows,
+      vars
     }) => {
-      const win = electron.BrowserWindow.fromWebContents(e.sender);
-      const transport = nodemailer.createTransport({
-        host: smtp.host,
-        port: smtp.port,
-        secure: smtp.secure,
-        auth: { user: smtp.user, pass: smtp.pass }
-      });
-      const report = [];
-      const formattedAttachments = attachments.map((file2) => ({
-        filename: file2.name,
-        path: file2.path,
-        contentType: mime.lookup(file2.name) || "application/octet-stream"
-      }));
-      for (const r of recipients) {
-        const vars = { name: r.name };
-        let pause = true;
-        try {
-          if (!extractEmail(r.email)) throw new InvalidEmailError();
-          const dub = report.find((p) => p.email == r.email);
-          if (dub) throw new DublicateError(dub);
-          await transport.sendMail({
-            from: smtp.user,
-            to: r.email,
-            subject: tpl(subjectTemplate, vars),
-            html: tpl(htmlTemplate, vars),
-            attachments: formattedAttachments
-          });
-          win.webContents.send("mail-progress", { ...r, status: "OK" });
-          report.push({ ...r, status: "OK", date: /* @__PURE__ */ new Date() });
-        } catch (err) {
-          if (err instanceof InvalidEmailError) pause = false;
-          if (err instanceof DublicateError) pause = false;
-          win.webContents.send("mail-progress", {
-            ...r,
-            status: err instanceof DublicateError ? "DUBLICATE" : "FAIL",
-            error: err.message
-          });
-          report.push({ ...r, status: err instanceof DublicateError ? "DUBLICATE" : "FAIL", error: err.message, date: /* @__PURE__ */ new Date() });
+      if (mailingInProgress) throw new Error("Рассылка уже выполняется");
+      mailingInProgress = true;
+      return (async () => {
+        const win = electron.BrowserWindow.fromWebContents(e.sender);
+        const transport = nodemailer.createTransport({
+          host: smtp.host,
+          port: smtp.port,
+          secure: smtp.secure,
+          auth: { user: smtp.user, pass: smtp.pass }
+        });
+        const report = [];
+        const sentEmails = await readSentEmails();
+        const reservedEmails = /* @__PURE__ */ new Set();
+        const formattedAttachments = attachments.map((file2) => ({
+          filename: file2.name,
+          path: file2.path,
+          contentType: mime.lookup(file2.name) || "application/octet-stream"
+        }));
+        for (const r of recipients) {
+          const v = vars.reduce((acc, v2) => {
+            acc[v2.name] = rows[r.rowNumber - 1][v2.columnName];
+            return acc;
+          }, {});
+          let pause = true;
+          let emailReserved = false;
+          try {
+            const email = extractEmail(r.email);
+            if (!email) throw new InvalidEmailError();
+            if (sentEmails.has(email)) throw new DuplicateEmailError("Адрес уже был использован в предыдущей рассылке");
+            if (reservedEmails.has(email)) throw new DuplicateEmailError("Дубликат адреса в текущей рассылке");
+            reservedEmails.add(email);
+            emailReserved = true;
+            await transport.sendMail({
+              from: smtp.user,
+              to: email,
+              subject: tpl(subjectTemplate, v),
+              html: tpl(htmlTemplate, v),
+              attachments: [...formattedAttachments, {
+                filename: "foroteh.png",
+                path: path.join(electron.app.getAppPath(), "/resources/foroteh.png"),
+                cid: "logo"
+              }, {
+                filename: "image005.gif",
+                path: path.join(electron.app.getAppPath(), "/resources/image005.gif"),
+                cid: "image005"
+              }]
+            });
+            sentEmails.add(email);
+            await saveSentEmails(sentEmails);
+            win.webContents.send("mail-progress", { ...r, status: "OK" });
+            report.push({ ...r, status: "OK", date: /* @__PURE__ */ new Date() });
+          } catch (err) {
+            if (err instanceof InvalidEmailError) pause = false;
+            if (err instanceof DuplicateEmailError) pause = false;
+            const email = extractEmail(r.email);
+            if (email && emailReserved) reservedEmails.delete(email);
+            win.webContents.send("mail-progress", {
+              ...r,
+              status: err instanceof DuplicateEmailError ? "DUBLICATE" : "FAIL",
+              error: err.message
+            });
+            report.push({ ...r, status: err instanceof DuplicateEmailError ? "DUBLICATE" : "FAIL", error: err.message, date: /* @__PURE__ */ new Date() });
+          }
+          if (pause)
+            await new Promise((res) => setTimeout(res, rand(pauseMin, pauseMax)));
         }
-        if (pause)
-          await new Promise((res) => setTimeout(res, rand(pauseMin, pauseMax)));
-      }
-      const file = await generateReport(report, rows, colsCopyNumbers);
-      return { file };
+        const file = await generateReport(report, rows, colsCopyNumbers);
+        return { file };
+      })().finally(() => {
+        mailingInProgress = false;
+      });
     }
   );
 }

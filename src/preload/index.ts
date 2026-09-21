@@ -24,6 +24,8 @@ const api = {
 
   getAccounts: (): Promise<Account[]> => ipcRenderer.invoke('get-accounts'),
 
+  resetSentEmails: (): Promise<void> => ipcRenderer.invoke('reset-sent-emails'),
+
   selectFiles: () => ipcRenderer.invoke('dialog:openFile'),
 };
 
